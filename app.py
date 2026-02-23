@@ -25,11 +25,8 @@ def play():
     if "fen" not in session:
         return jsonify({"error": "No active game"}), 400
 
-    data = request.get_json(silent=True)
-    if not data or "move" not in data:
-        return jsonify({"error": "Invalid JSON payload"}), 400
-
-    move_uci = data["move"]
+    data = request.json
+    move_uci = data.get("move")
 
     board = board_from_fen(session["fen"])
 
