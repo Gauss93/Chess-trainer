@@ -1,4 +1,4 @@
-from flask import Flask, render_template, session, request, jsonify
+from flask import Flask, render_template, session, request, jsonify, redirect
 from chess_logic import (
     create_board, 
     get_fen,
@@ -45,3 +45,29 @@ def play():
         "game_over": board.is_game_over()
     })
 
+@app.route("/board")
+def board():
+    if "fen" not in session:
+        return "Pas de partie commencée."
+    board = board_from_fen(session["fen"])
+    ascii_board = str(board)
+
+    return render_template("board.html", board = ascii_board)
+
+@app.route("/play-form", methods=["POST"])
+def play_form():
+    if "fen" not in session:
+        return "No active game"
+
+    move_uci = request.form.get("move")
+
+    board = board_from_fen(session["fen"])
+
+    if not make_move(board, move_uci):
+        return "Illegal move"
+
+    make_random_ai_move(board)
+
+    session["fen"] = get_fen(board)
+
+    return redirect("/board")
