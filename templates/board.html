@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game</title>
+
+</head>
+<body>
+     <h1>Chess Trainer</h1>
+
+
+    <pre>{{ board }}</pre>
+
+
+    <form method="post" action="/play-form">
+        <input type="text" name="move" placeholder="e2e4" required>
+        <button type="submit">Envoyer coup</button>
+    </form>
+
+    <br>
+    <a href="/new-game">Nouvelle partie</a>
+</body>
+</html>

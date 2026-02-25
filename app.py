@@ -12,13 +12,15 @@ app.secret_key = "dev-secret-key" # Pour session !!!
 
 @app.route('/')
 def welcome():
-    return render_template('welcome.html')
+    if "fen" not in session:
+        return redirect("/new-game")
+    return redirect("/board")
 
 @app.route('/new-game')
 def new_game():
     board = create_board()
     session["fen"] = get_fen(board)
-    return f"Nouvelle partie créée"
+    return redirect("/board")
 
 @app.route("/play", methods=["POST"])
 def play():
@@ -51,6 +53,8 @@ def board():
         return "Pas de partie commencée."
     board = board_from_fen(session["fen"])
     ascii_board = str(board)
+
+    # return f"<pre>{ascii_board}</pre>"
 
     return render_template("board.html", board = ascii_board)
 
