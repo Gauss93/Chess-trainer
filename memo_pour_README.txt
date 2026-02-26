@@ -96,3 +96,15 @@ app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 Etape 4 script pour la création 
 j'ai créer un fichier create.db pour lancer le script
 python create_db.py
+
+------------------------------------------------------------------------------
+
+premier test de sauvegarde
+
+creation de extensions.db pour creation db a exporter
+modification des routes play et play-form
+
+enfin modification de la route ('/') la fonction def recherche maintenant une partie commencée.
+aide des llm pour configurer cette route.
+
+La sauvegarde fonctionne !!!!
