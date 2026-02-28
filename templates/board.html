@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Chess Game</title>
 
 </head>
 <body>
-     <h1>Chess Trainer</h1>
+     <div class="container">
+        <h1>Chess Trainer</h1>
 
+        <div class="board">
+            <pre>{{ board }}</pre>
+        </div>
 
-    <pre>{{ board }}</pre>
+        <form method="post" action="/play-form">
+            <input type="text" name="move" placeholder="e2e4" required>
+            <button type="submit">Envoyer</button>
+        </form>
 
-
-    <form method="post" action="/play-form">
-        <input type="text" name="move" placeholder="e2e4" required>
-        <button type="submit">Envoyer coup</button>
-    </form>
-
-    <br>
-    <a href="/new-game">Nouvelle partie</a>
+        <a href="/new-game">Nouvelle partie</a>
 </body>
 </html>
