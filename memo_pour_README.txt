@@ -108,3 +108,8 @@ enfin modification de la route ('/') la fonction def recherche maintenant une pa
 aide des llm pour configurer cette route.
 
 La sauvegarde fonctionne !!!!
+
+-----------------------------------------------------------------------------
+
+première integration css, je commence minimaliste et je passe au svg grâce a python-chess.
+ajout de script dans board.html pour pouvoir jouer a la souris et non plus en tapant un code uci.

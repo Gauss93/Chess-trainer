@@ -1,11 +1,15 @@
 import chess
 import random
+import chess.svg
 
 def create_board():
     return chess.Board()
 
 def get_board_ascii(board):
     return str(board)
+
+def get_board_svg(board):
+    return chess.svg.board(board=board)
 
 def get_fen(board):
     return board.fen()

@@ -4,6 +4,7 @@ from extensions import db
 from models import Game
 from chess_logic import (
     create_board, 
+    get_board_svg,
     get_fen,
     board_from_fen,
     make_move,
@@ -26,7 +27,6 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
-@app.route('/')
 @app.route('/')
 def welcome():
     # On cherche la dernière partie créée en base de données
@@ -89,10 +89,8 @@ def play():
 def board():
     if "fen" not in session:
         return "Pas de partie commencée."
-    board = board_from_fen(session["fen"])
-    ascii_board = str(board)
 
-    return render_template("board.html", board = ascii_board)
+    return render_template("board.html", fen=session["fen"])
 
 @app.route("/play-form", methods=["POST"])
 def play_form():

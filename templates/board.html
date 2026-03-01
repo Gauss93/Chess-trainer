@@ -3,23 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='chessboard/css/chessboard-1.0.0.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Chess Game</title>
 
 </head>
 <body>
-     <div class="container">
-        <h1>Chess Trainer</h1>
 
-        <div class="board">
-            <pre>{{ board }}</pre>
-        </div>
+<div class="container">
+    <div id="board" style="width: 400px"></div>
+</div>
 
-        <form method="post" action="/play-form">
-            <input type="text" name="move" placeholder="e2e4" required>
-            <button type="submit">Envoyer</button>
-        </form>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{{ url_for('static', filename='chessboard/js/chessboard-1.0.0.min.js') }}"></script>
 
-        <a href="/new-game">Nouvelle partie</a>
+<script>
+    window.initialFen = "{{ fen }}";
+    var currentFen = '{{ fen }}';
+</script>
+
+<script src="{{ url_for('static', filename='chessboard/js/board.js') }}"></script>
+
 </body>
 </html>

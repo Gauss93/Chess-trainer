@@ -18,12 +18,14 @@ h1 {
 
 .board {
     background-color: #1e1e1e;
-    padding: 20px;
+    padding: 10px;
     border-radius: 8px;
     display: inline-block;
-    font-size: 18px;
-    line-height: 1.4;
-    border: 1px solid #333;
+}
+
+.board svg {
+    width: 480px;
+    height: 480px;
 }
 
 form {
