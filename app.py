@@ -42,7 +42,13 @@ def welcome():
 
 @app.route('/new-game')
 def new_game():
+    color = request.args.get("color", "white")
+
     board = create_board()
+
+    if color == "black":
+        make_random_ai_move(board)
+        
     fen = get_fen(board)
 
     game = Game(fen=fen)
@@ -51,6 +57,7 @@ def new_game():
 
     session["game_id"] = game.id
     session["fen"] = fen
+    session["color"] = color
 
     return redirect("/board")
 
@@ -89,8 +96,10 @@ def play():
 def board():
     if "fen" not in session:
         return "Pas de partie commencée."
+    
+    color = session.get("color", "white")
 
-    return render_template("board.html", fen=session["fen"])
+    return render_template("board.html", fen=session["fen"], color=color)
 
 @app.route("/play-form", methods=["POST"])
 def play_form():

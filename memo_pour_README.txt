@@ -113,3 +113,7 @@ La sauvegarde fonctionne !!!!
 
 première integration css, je commence minimaliste et je passe au svg grâce a python-chess.
 ajout de script dans board.html pour pouvoir jouer a la souris et non plus en tapant un code uci.
+
+telechargement des fichiers chessboard dont les imgs un js et un css.
+séparation des scripts dans le html --> maintenant dans un fichier js
+le fichier js gère le drag et la gestion des joueurs ainsi que la promotion

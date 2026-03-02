@@ -11,15 +11,28 @@
 <body>
 
 <div class="container">
+    <h1 class="app-title">Chess Trainer</h1>
     <div id="board" style="width: 400px"></div>
+    <div id="promotion-modal" class="promotion-modal hidden">
+    <div class="promotion-box">
+        <img data-piece="q">
+        <img data-piece="r">
+        <img data-piece="b">
+        <img data-piece="n">
+    </div>
 </div>
+    <a href="/new-game?color=white" class="btn">Jouer Blanc</a>
+    <a href="/new-game?color=black" class="btn">Jouer Noir</a>
+</div>
+
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="{{ url_for('static', filename='chessboard/js/chessboard-1.0.0.min.js') }}"></script>
 
 <script>
-    window.initialFen = "{{ fen }}";
+    window.initialFen = "{{ fen }}"; // {{ fen }} ne peux pas se mettre dans un fichier .js
     var currentFen = '{{ fen }}';
+    var playerColor = "{{ color }}";
 </script>
 
 <script src="{{ url_for('static', filename='chessboard/js/board.js') }}"></script>
