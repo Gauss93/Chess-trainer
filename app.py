@@ -4,7 +4,6 @@ from extensions import db
 from models import Game
 from chess_logic import (
     create_board, 
-    get_board_svg,
     get_fen,
     board_from_fen,
     make_move,
