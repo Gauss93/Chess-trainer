@@ -1,5 +1,6 @@
 from flask import Flask, render_template, session, request, jsonify, redirect
 import os
+from dotenv import load_dotenv
 from extensions import db
 from models import Game
 from chess_logic import (
@@ -11,15 +12,29 @@ from chess_logic import (
 )
 
 app = Flask(__name__)
-app.secret_key = "dev-secret-key" # Pour session !!!
+load_dotenv() # Charge les variables du fichier .env
 
-basedir = os.path.abspath(os.path.dirname(__file__))
-db_path = os.path.join(basedir, "instance", "chess.db")
+# Sécurité : Utilise une clé du .env ou une valeur par défaut en dev
+app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
 
-os.makedirs(os.path.dirname(db_path), exist_ok=True)
+# --- CONFIGURATION DATABASE DYNAMIQUE ---
+# On cherche d'abord PostgreSQL (Docker), sinon on prend SQLite (Local)
+database_url = os.getenv("DATABASE_URL")
 
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+if not database_url:
+    # Fallback sur SQLite si rien n'est défini dans le .env
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    db_path = os.path.join(basedir, "instance", "chess.db")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    database_url = f"sqlite:///{db_path}"
+
+# Correctif pour SQLAlchemy 1.4+ (exige postgresql:// au lieu de postgres://)
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# ----------------------------------------
 
 db.init_app(app)
 
