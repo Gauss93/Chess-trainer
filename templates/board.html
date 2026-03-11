@@ -12,6 +12,17 @@
 
 <div class="container">
     <h1 class="app-title">Chess Trainer</h1>
+    <div class="clock-panel">
+        <div class="clock-card" data-color="black">
+            <span class="clock-label">Noirs</span>
+            <span id="black-clock" class="clock-value">10:00</span>
+        </div>
+        <div class="clock-card" data-color="white">
+            <span class="clock-label">Blancs</span>
+            <span id="white-clock" class="clock-value">10:00</span>
+        </div>
+    </div>
+    <p id="game-status" class="game-status"></p>
     <div id="board" style="width: 400px"></div>
     <div id="promotion-modal" class="promotion-modal hidden">
     <div class="promotion-box">
@@ -33,6 +44,7 @@
     window.initialFen = "{{ fen }}"; // {{ fen }} ne peux pas se mettre dans un fichier .js
     var currentFen = '{{ fen }}';
     var playerColor = "{{ color }}";
+    window.initialClock = {{ clock|tojson }};
 </script>
 
 <script src="{{ url_for('static', filename='chessboard/js/board.js') }}"></script>
