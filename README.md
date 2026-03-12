@@ -1,194 +1,156 @@
-# ♟️ Chess Trainer
+# Chess Trainer
 
-Application web d’échecs développée en **Python / Flask** permettant de jouer contre une IA basique (coup aléatoire), avec persistance des parties en base **SQLite**.
+Application web d'echecs developpee en Python avec Flask. Le projet permet de jouer une partie contre une IA simple, de sauvegarder l'etat de jeu en base de donnees et d'afficher un echiquier interactif en interface web.
 
----
+## Pourquoi ce depot est interessant pour un recruteur
 
-## 🎯 Objectif du projet
+Ce repository montre deux dimensions complementaires :
 
-Ce projet a été conçu pour démontrer :
+- une premiere version construite seul, qui reflete mon niveau et mes choix techniques initiaux ;
+- une branche `main` sur laquelle je pousse une version amelioree, avec un travail d'optimisation, de structuration et de finition plus avance, en m'appuyant sur Codex comme assistant de developpement.
 
-- Une architecture backend propre
-- Une séparation stricte logique métier / contrôleur
-- Une gestion d’état via FEN
-- Une API REST testable indépendamment du frontend
-- Une interface interactive (drag & drop)
-- Une persistance avec SQLAlchemy
+L'objectif est de rendre visible a la fois :
 
----
+- ma capacite a concevoir et livrer un projet de maniere autonome ;
+- ma capacite a iterer, refactorer et professionnaliser un code existant.
 
-## 🚀 Fonctionnalités
+## Lecture des branches
 
-- Création d’une nouvelle partie
-- Jeu contre une IA aléatoire
-- Plateau interactif (Chessboard.js)
-- Validation des coups via python-chess
-- Gestion propre de la promotion des pions (UI clickable)
-- Sauvegarde automatique des parties en SQLite
-- Reprise de la partie active
-- Backend entièrement testable via API REST
+Pour faciliter l'evaluation du projet :
 
----
+- branche "version initiale" : implementation de reference correspondant a mon travail avant phase d'optimisation ;
+- branche `main` : version actuelle du projet, retravaillee pour ameliorer la qualite du code, la robustesse et la presentation globale, avec une phase d'optimisation menee avec l'aide de Codex.
 
-## 🏗️ Architecture
+Cette separation permet de voir concretement la progression entre une version fonctionnelle et une version plus aboutie.
 
-### Principe fondamental
+## Fonctionnalites
 
+- creation d'une nouvelle partie ;
+- jeu contre une IA basique ;
+- validation des coups avec `python-chess` ;
+- affichage interactif du plateau ;
+- gestion de la promotion des pions ;
+- sauvegarde des parties avec SQLAlchemy ;
+- reprise de la partie active ;
+- API REST testable independamment du frontend ;
+- gestion d'un controle du temps cote serveur.
+- conteneurisation Docker du projet.
 
-app.py → Gestion HTTP, sessions, routes
-chess_logic.py → Règles du jeu (python-chess uniquement)
-models.py → Modèle SQLAlchemy
-extensions.py → Initialisation des extensions
-templates/ → Vues HTML
-static/ → CSS + JS
-
-
-### 🔒 Gestion d’état
-
-- Aucun objet `Board` global
-- L’état du jeu est stocké en session via la **FEN (Forsyth-Edwards Notation)**
-- Architecture stateless côté serveur
-- Compatible multi-utilisateurs
-- Reconstruction rapide du plateau
-
-Exemple de FEN initiale :
-
-
-rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-
----
-
-## 🛠️ Stack Technique
+## Stack technique
 
 ### Backend
-- Python 3
+
+- Python
 - Flask
-- python-chess
-- Flask-SQLAlchemy
+- SQLAlchemy
 - SQLite
+- python-chess
 
 ### Frontend
+
 - HTML
-- CSS custom
+- CSS
 - JavaScript
 - Chessboard.js
 
----  
+## Architecture
 
-   # 📂 Structure du projet :
-    
-    chess-trainer/
-    │
-    ├── app.py
-    ├── chess_logic.py
-    ├── models.py
-    ├── extensions.py
-    ├── requirements.txt
-    │
-    ├── instance/
-    │   └── chess.db
-    │
-    ├── templates/
-    │   └── board.html
-    │
-    └── static/
-        ├── style.css
-        ├── board.js
-        └── chessboard/
-    
----
+Le projet suit une separation simple des responsabilites :
 
-## ⚙️ Installation
+- `app.py` : routes Flask, session utilisateur, persistence et gestion du chrono ;
+- `chess_logic.py` : logique metier liee au plateau et aux coups ;
+- `models.py` : modeles SQLAlchemy ;
+- `extensions.py` : initialisation des extensions Flask ;
+- `templates/` : vues HTML ;
+- `static/` : fichiers CSS et JavaScript.
 
-### 1️⃣ Cloner le projet
+L'etat du plateau est stocke via la notation FEN, ce qui permet une gestion de session legere et une reconstruction fiable du jeu.
 
-    ```bash
-    git clone <repo_url>
-    cd chess-trainer
+## Ce que le projet demontre
 
-### 2️⃣ Créer un environnement virtuel
+- conception d'une application web backend/frontend simple mais complete ;
+- separation entre logique metier, couche HTTP et persistence ;
+- utilisation d'une bibliotheque metier externe (`python-chess`) ;
+- mise en place d'une API JSON exploitable et testable ;
+- prise en compte de la robustesse applicative avec gestion d'erreurs et persistence ;
+- evolution d'un projet personnel vers une version plus maintenable ;
+- capacite a utiliser Codex comme levier d'optimisation, de refactorisation et de clarification technique.
 
-    python -m venv .venv
+## Installation
 
-    Windows :
+```bash
+git clone <repo_url>
+cd chess-trainer
+python -m venv .venv
+```
 
-    .\.venv\Scripts\Activate.ps1
+Sous Windows :
 
-    Linux / Mac :
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-    source .venv/bin/activate
-    
-### 3️⃣ Installer les dépendances
+Sous Linux / macOS :
 
-    pip install -r requirements.txt
-    
-### 4️⃣ Lancer le serveur
+```bash
+source .venv/bin/activate
+```
 
-    python app.py
+Installation des dependances :
 
-    Accès :
+```bash
+pip install -r requirements.txt
+```
 
-    http://127.0.0.1:5000
+Lancement de l'application :
 
-# 🧪 Tester le Backend (PowerShell)
+```bash
+python app.py
+```
 
-### Créer une session
-    
-    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        
-### Initialiser une partie
-    
-    Invoke-RestMethod `
-        -Uri "http://127.0.0.1:5000/new-game" `
-        -WebSession $session
-          
-### Simuler un coup
-    
-     Invoke-RestMethod `
-        -Uri "http://127.0.0.1:5000/play" `
-        -Method Post `
-        -WebSession $session `
-        -Body '{"move":"e2e4"}' `
-        -ContentType "application/json"
-          
-### Réponse attendue
-    
-    {
-        "player_move": "e2e4",
-        "ai_move": "c7c5",
-        "fen": "...",
-        "game_over": false
-     }
+Acces local :
 
-# 📚 Compétences démontrées
+```text
+http://127.0.0.1:5000
+```
 
-Séparation logique métier / contrôleur
+## Exemple de test API
 
-Gestion d’état propre en environnement multi-utilisateur
+Creation d'une session PowerShell :
 
-Utilisation avancée de python-chess
+```powershell
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+```
 
-Gestion d’erreurs JSON robuste
+Initialisation d'une partie :
 
-Conception d’API REST testable
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:5000/new-game" `
+  -WebSession $session
+```
 
-Persistance avec SQLAlchemy
+Envoi d'un coup :
 
-Intégration frontend interactif
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:5000/play" `
+  -Method Post `
+  -WebSession $session `
+  -Body '{"move":"e2e4"}' `
+  -ContentType "application/json"
+```
 
-# 🔮 Améliorations futures
+## Evolutions realisees et pistes d'amelioration
 
-Affichage du résultat (victoire / nul / défaite)
+Evolutions deja realisees :
 
-Historique des coups
+- conteneurisation Docker du projet.
 
-IA plus avancée (ex : Stockfish)
+Pistes d'amelioration :
 
-Authentification utilisateur
-
-Dockerisation
-
-PostgreSQL en production
-
-Déploiement cloud (Render / Fly.io / Railway)
-
+- IA plus avancee ;
+- historique des coups ;
+- authentification utilisateur ;
+- base PostgreSQL pour un environnement de production ;
+- deploiement cloud.
