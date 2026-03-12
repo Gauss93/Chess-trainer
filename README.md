@@ -33,8 +33,8 @@ Cette separation permet de voir concretement la progression entre une version fo
 - sauvegarde des parties avec SQLAlchemy ;
 - reprise de la partie active ;
 - API REST testable independamment du frontend ;
-- gestion d'un controle du temps cote serveur.
-- conteneurisation Docker du projet.
+- gestion d'un controle du temps cote serveur ;
+- service PostgreSQL lancable via Docker Compose.
 
 ## Stack technique
 
@@ -78,6 +78,18 @@ L'etat du plateau est stocke via la notation FEN, ce qui permet une gestion de s
 
 ## Installation
 
+### Prerequis
+
+- Python 3 ;
+- `pip` ;
+- Docker Desktop uniquement si vous souhaitez lancer PostgreSQL via Docker Compose.
+
+### Option 1 - Lancement local simple avec SQLite
+
+Le chemin le plus simple pour tester le projet est d'utiliser SQLite, sans Docker.
+
+Si un fichier `.env` est present avec une variable `DATABASE_URL` pointant vers PostgreSQL, il faut la commenter ou supprimer cette variable avant de lancer l'application. Sans `DATABASE_URL`, l'application bascule automatiquement sur SQLite dans `instance/chess.db`.
+
 ```bash
 git clone <repo_url>
 cd chess-trainer
@@ -100,6 +112,32 @@ Installation des dependances :
 
 ```bash
 pip install -r requirements.txt
+```
+
+Verifier que `DATABASE_URL` n'est pas definie pour PostgreSQL, puis lancer l'application :
+
+```bash
+python app.py
+```
+
+Acces local :
+
+```text
+http://127.0.0.1:5000
+```
+
+### Option 2 - Lancement avec PostgreSQL via Docker Compose
+
+Demarrer PostgreSQL :
+
+```bash
+docker compose up -d
+```
+
+Puis definir la variable d'environnement suivante dans un fichier `.env` a la racine du projet :
+
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/chess_db
 ```
 
 Lancement de l'application :
@@ -145,7 +183,7 @@ Invoke-RestMethod `
 
 Evolutions deja realisees :
 
-- conteneurisation Docker du projet.
+- mise a disposition d'un service PostgreSQL via Docker Compose.
 
 Pistes d'amelioration :
 
