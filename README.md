@@ -6,22 +6,22 @@ Application web d'echecs developpee en Python avec Flask. Le projet permet de jo
 
 Ce repository montre deux dimensions complementaires :
 
-- une premiere version construite seul, qui reflete mon niveau et mes choix techniques initiaux ;
-- une branche `main` sur laquelle je pousse une version amelioree, avec un travail d'optimisation, de structuration et de finition plus avance, en m'appuyant sur Codex comme assistant de developpement.
+- une branche `main`, qui correspond a la base du projet sur laquelle je travaille directement ;
+- une branche `ai-refactor`, qui me permet d'aller plus loin avec Codex sur l'optimisation, la structuration et la finition du projet.
 
 L'objectif est de rendre visible a la fois :
 
 - ma capacite a concevoir et livrer un projet de maniere autonome ;
-- ma capacite a iterer, refactorer et professionnaliser un code existant.
+- ma capacite a iterer, refactorer et professionnaliser un code existant avec une demarche d'amelioration continue.
 
 ## Lecture des branches
 
 Pour faciliter l'evaluation du projet :
 
-- branche "version initiale" : implementation de reference correspondant a mon travail avant phase d'optimisation ;
-- branche `main` : version actuelle du projet, retravaillee pour ameliorer la qualite du code, la robustesse et la presentation globale, avec une phase d'optimisation menee avec l'aide de Codex.
+- branche `main` : version de travail principale, correspondant a l'etat sur lequel j'avance directement ;
+- branche `ai-refactor` : branche dediee aux refactorisations, aux ameliorations de structure et aux optimisations poussees plus loin avec l'aide de Codex.
 
-Cette separation permet de voir concretement la progression entre une version fonctionnelle et une version plus aboutie.
+Cette separation permet de voir concretement le socle du projet et son evolution vers une version plus aboutie.
 
 ## Fonctionnalites
 
