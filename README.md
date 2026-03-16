@@ -1,39 +1,30 @@
 # Chess Trainer
 
-Application web d'echecs developpee en Python avec Flask. Le projet permet de jouer une partie contre une IA simple, de sauvegarder l'etat de jeu en base de donnees et d'afficher un echiquier interactif en interface web.
+Application web d'echecs developpée en Python avec Flask. Le projet permet de jouer une partie contre une IA simple, de sauvegarder l'état de jeu en base de données et d'afficher un échiquier interactif en interface web.
 
-## Pourquoi ce depot est interessant pour un recruteur
+## Pourquoi ce dépôt est intéressant pour un recruteur
 
-Ce repository montre deux dimensions complementaires :
+Ce repository montre deux dimensions complémentaires :
 
-- une branche `main`, qui correspond a la base du projet sur laquelle je travaille directement ;
+- une branche `main`, qui correspond à la base du projet sur laquelle je travaille directement ;
 - une branche `ai-refactor`, qui me permet d'aller plus loin avec Codex sur l'optimisation, la structuration et la finition du projet.
 
-L'objectif est de rendre visible a la fois :
+L'objectif est de rendre visible à la fois :
 
-- ma capacite a concevoir et livrer un projet de maniere autonome ;
-- ma capacite a iterer, refactorer et professionnaliser un code existant avec une demarche d'amelioration continue.
-
-## Lecture des branches
-
-Pour faciliter l'evaluation du projet :
-
-- branche `main` : version de travail principale, correspondant a l'etat sur lequel j'avance directement ;
-- branche `ai-refactor` : branche dediee aux refactorisations, aux ameliorations de structure et aux optimisations poussees plus loin avec l'aide de Codex.
-
-Cette separation permet de voir concretement le socle du projet et son evolution vers une version plus aboutie.
+- ma capacité à concevoir et livrer un projet de manière autonome ;
+- ma capacité à iterer, refactorer et professionnaliser un code existant avec une démarche d'amélioration continue.
 
 ## Fonctionnalites
 
-- creation d'une nouvelle partie ;
+- création d'une nouvelle partie ;
 - jeu contre une IA basique ;
 - validation des coups avec `python-chess` ;
 - affichage interactif du plateau ;
 - gestion de la promotion des pions ;
 - sauvegarde des parties avec SQLAlchemy ;
 - reprise de la partie active ;
-- API REST testable independamment du frontend ;
-- gestion d'un controle du temps cote serveur ;
+- API REST testable indépendamment du frontend ;
+- gestion d'un contrôle du temps côté serveur ;
 - service PostgreSQL lancable via Docker Compose.
 
 ## Stack technique
@@ -43,7 +34,8 @@ Cette separation permet de voir concretement le socle du projet et son evolution
 - Python
 - Flask
 - SQLAlchemy
-- SQLite
+- SQLite/PostgreSQL
+- Docker
 - python-chess
 
 ### Frontend
@@ -55,26 +47,26 @@ Cette separation permet de voir concretement le socle du projet et son evolution
 
 ## Architecture
 
-Le projet suit une separation simple des responsabilites :
+Le projet suit une séparation simple des responsabilités :
 
 - `app.py` : routes Flask, session utilisateur, persistence et gestion du chrono ;
-- `chess_logic.py` : logique metier liee au plateau et aux coups ;
-- `models.py` : modeles SQLAlchemy ;
+- `chess_logic.py` : logique métier liée au plateau et aux coups ;
+- `models.py` : modèles SQLAlchemy ;
 - `extensions.py` : initialisation des extensions Flask ;
 - `templates/` : vues HTML ;
 - `static/` : fichiers CSS et JavaScript.
 
-L'etat du plateau est stocke via la notation FEN, ce qui permet une gestion de session legere et une reconstruction fiable du jeu.
+L'etat du plateau est stocké via la notation FEN, ce qui permet une gestion de session légère et une reconstruction fiable du jeu.
 
-## Ce que le projet demontre
+## Ce que le projet démontre
 
-- conception d'une application web backend/frontend simple mais complete ;
-- separation entre logique metier, couche HTTP et persistence ;
-- utilisation d'une bibliotheque metier externe (`python-chess`) ;
+- conception d'une application web backend/frontend simple mais complète ;
+- séparation entre logique métier, couche HTTP et persistence ;
+- utilisation d'une bibliotheque métier externe (`python-chess`) ;
 - mise en place d'une API JSON exploitable et testable ;
 - prise en compte de la robustesse applicative avec gestion d'erreurs et persistence ;
 - evolution d'un projet personnel vers une version plus maintenable ;
-- capacite a utiliser Codex comme levier d'optimisation, de refactorisation et de clarification technique.
+- capacité à utiliser Codex comme levier d'optimisation, de refactorisation et de clarification technique.
 
 ## Installation
 
@@ -88,10 +80,10 @@ L'etat du plateau est stocke via la notation FEN, ce qui permet une gestion de s
 
 Le chemin le plus simple pour tester le projet est d'utiliser SQLite, sans Docker.
 
-Si un fichier `.env` est present avec une variable `DATABASE_URL` pointant vers PostgreSQL, il faut la commenter ou supprimer cette variable avant de lancer l'application. Sans `DATABASE_URL`, l'application bascule automatiquement sur SQLite dans `instance/chess.db`.
+Un fichier `.env` est présent avec une variable `DATABASE_URL` pointant vers PostgreSQL, il faut la commenter ou supprimer cette variable avant de lancer l'application. Sans `DATABASE_URL`, l'application bascule automatiquement sur SQLite dans `instance/chess.db`.
 
 ```bash
-git clone <repo_url>
+git clone https://github.com/Gauss93/chess-trainer.git
 cd chess-trainer
 python -m venv .venv
 ```
@@ -108,19 +100,19 @@ Sous Linux / macOS :
 source .venv/bin/activate
 ```
 
-Installation des dependances :
+Installation des dépendances :
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Verifier que `DATABASE_URL` n'est pas definie pour PostgreSQL, puis lancer l'application :
+Vérifier que `DATABASE_URL` n'est pas définie pour PostgreSQL, puis lancer l'application :
 
 ```bash
 python app.py
 ```
 
-Acces local :
+Accès local :
 
 ```text
 http://127.0.0.1:5000
@@ -128,13 +120,13 @@ http://127.0.0.1:5000
 
 ### Option 2 - Lancement avec PostgreSQL via Docker Compose
 
-Demarrer PostgreSQL :
+Démarrer PostgreSQL :
 
 ```bash
 docker compose up -d
 ```
 
-Puis definir la variable d'environnement suivante dans un fichier `.env` a la racine du projet :
+Puis définir la variable d'environnement suivante dans un fichier `.env` à la racine du projet :
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/chess_db
@@ -146,7 +138,7 @@ Lancement de l'application :
 python app.py
 ```
 
-Acces local :
+Accès local :
 
 ```text
 http://127.0.0.1:5000
@@ -154,7 +146,7 @@ http://127.0.0.1:5000
 
 ## Exemple de test API
 
-Creation d'une session PowerShell :
+Création d'une session PowerShell :
 
 ```powershell
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -179,16 +171,16 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
-## Evolutions realisees et pistes d'amelioration
+## Evolutions réalisees et pistes d'amélioration
 
-Evolutions deja realisees :
+Evolutions déjà réalisées :
 
-- mise a disposition d'un service PostgreSQL via Docker Compose.
+- mise à disposition d'un service PostgreSQL via Docker Compose.
 
-Pistes d'amelioration :
+Pistes d'amélioration :
 
 - IA plus avancee ;
 - historique des coups ;
 - authentification utilisateur ;
-- base PostgreSQL pour un environnement de production ;
-- deploiement cloud.
+- système de classement (elo) ;
+- déploiement cloud.
