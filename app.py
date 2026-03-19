@@ -6,9 +6,11 @@ interactions avec la base de donnees pour persister l'etat des parties.
 
 import logging
 import os
+import time
 
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, session
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from chess_logic import (
@@ -35,6 +37,40 @@ DEFAULT_CLOCK = {
     "is_finished": False,
     "result": None,
 }
+
+
+def build_initial_clock(active_color: str = "white") -> dict:
+    """Construit un chrono initial avec horodatage serveur."""
+
+    return {
+        **DEFAULT_CLOCK,
+        "active_color": active_color,
+        "last_updated_at": time.time(),
+    }
+
+
+def build_clock_from_game(game: Game | None, fallback_color: str = "white") -> dict:
+    """Construit un chrono a partir des donnees persistees en base."""
+
+    if not game:
+        return build_initial_clock(active_color=fallback_color)
+
+    active_color = game.active_color
+    if active_color not in {"white", "black"}:
+        active_color = None
+
+    return {
+        "white_time_left": game.white_time_left
+        if game.white_time_left is not None
+        else DEFAULT_CLOCK["white_time_left"],
+        "black_time_left": game.black_time_left
+        if game.black_time_left is not None
+        else DEFAULT_CLOCK["black_time_left"],
+        "active_color": active_color,
+        "is_finished": bool(game.is_finished),
+        "result": game.result,
+        "last_updated_at": game.clock_last_updated_at or time.time(),
+    }
 
 
 def load_environment() -> bool:
@@ -108,10 +144,103 @@ def commit_session(context: str) -> bool:
         return False
 
 
-def get_clock_state() -> dict:
-    """Retourne un etat de chrono minimal compatible avec le frontend."""
+def sync_clock_state(clock: dict | None = None) -> dict:
+    """Met a jour le chrono selon le temps reel ecoule cote serveur."""
 
-    return dict(DEFAULT_CLOCK)
+    current_clock = dict(clock or session.get("clock") or build_initial_clock())
+    now = time.time()
+
+    if current_clock.get("is_finished") or not current_clock.get("active_color"):
+        current_clock["last_updated_at"] = now
+        return current_clock
+
+    last_updated_at = float(current_clock.get("last_updated_at", now))
+    elapsed_seconds = max(0, int(now - last_updated_at))
+
+    if elapsed_seconds > 0:
+        active_color = current_clock["active_color"]
+        time_key = f"{active_color}_time_left"
+        current_clock[time_key] = max(
+            0,
+            int(current_clock.get(time_key, DEFAULT_CLOCK[time_key])) - elapsed_seconds,
+        )
+
+        if current_clock[time_key] == 0:
+            current_clock["is_finished"] = True
+            current_clock["result"] = (
+                "black_time_win" if active_color == "white" else "white_time_win"
+            )
+            current_clock["active_color"] = None
+
+    current_clock["last_updated_at"] = now
+    return current_clock
+
+
+def get_clock_state() -> dict:
+    """Retourne le chrono courant et le resynchronise dans la session."""
+
+    clock = sync_clock_state()
+    session["clock"] = clock
+    return clock
+
+
+def persist_clock_to_game(game: Game, clock: dict) -> None:
+    """Copie l'etat du chrono courant dans le modele SQLAlchemy."""
+
+    game.white_time_left = int(clock["white_time_left"])
+    game.black_time_left = int(clock["black_time_left"])
+    game.active_color = clock.get("active_color")
+    game.clock_last_updated_at = float(clock["last_updated_at"])
+    game.is_finished = bool(clock.get("is_finished"))
+    game.result = clock.get("result")
+
+
+def load_game_into_session(game: Game) -> None:
+    """Recharge la partie et son chrono depuis la base vers la session."""
+
+    session["game_id"] = game.id
+    session["fen"] = game.fen
+    session["color"] = game.player_color or "white"
+    session["clock"] = build_clock_from_game(game, fallback_color=session["color"])
+
+
+def ensure_game_schema() -> None:
+    """Ajoute les colonnes manquantes pour les parties existantes."""
+
+    inspector = inspect(db.engine)
+    existing_columns = {column["name"] for column in inspector.get_columns("game")}
+    missing_columns = {
+        "player_color": "ALTER TABLE game ADD COLUMN player_color VARCHAR(5)",
+        "white_time_left": "ALTER TABLE game ADD COLUMN white_time_left INTEGER",
+        "black_time_left": "ALTER TABLE game ADD COLUMN black_time_left INTEGER",
+        "active_color": "ALTER TABLE game ADD COLUMN active_color VARCHAR(5)",
+        "clock_last_updated_at": "ALTER TABLE game ADD COLUMN clock_last_updated_at FLOAT",
+    }
+
+    with db.engine.begin() as connection:
+        for column_name, ddl in missing_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(ddl))
+
+        connection.execute(
+            text("UPDATE game SET player_color = COALESCE(player_color, 'white')")
+        )
+        connection.execute(
+            text("UPDATE game SET white_time_left = COALESCE(white_time_left, 600)")
+        )
+        connection.execute(
+            text("UPDATE game SET black_time_left = COALESCE(black_time_left, 600)")
+        )
+        connection.execute(
+            text("UPDATE game SET active_color = COALESCE(active_color, 'white')")
+        )
+        connection.execute(
+            text(
+                "UPDATE game SET clock_last_updated_at = "
+                "COALESCE(clock_last_updated_at, :timestamp)"
+            ),
+            {"timestamp": time.time()},
+        )
 
 
 load_environment()
@@ -126,6 +255,7 @@ db.init_app(app)
 with app.app_context():
     try:
         db.create_all()
+        ensure_game_schema()
     except SQLAlchemyError:
         logger.exception("Impossible d'initialiser la base de donnees avec create_all().")
 
@@ -148,8 +278,7 @@ def welcome():
         return redirect("/new-game")
 
     if last_game:
-        session["game_id"] = last_game.id
-        session["fen"] = last_game.fen
+        load_game_into_session(last_game)
         return redirect("/board")
 
     return redirect("/new-game")
@@ -175,7 +304,9 @@ def new_game():
         make_random_ai_move(board)
 
     fen = get_fen(board)
-    game = Game(fen=fen)
+    initial_clock = build_initial_clock(active_color=color)
+    game = Game(fen=fen, player_color=color)
+    persist_clock_to_game(game, initial_clock)
     db.session.add(game)
 
     if not commit_session("la creation d'une nouvelle partie"):
@@ -184,6 +315,7 @@ def new_game():
     session["game_id"] = game.id
     session["fen"] = fen
     session["color"] = color
+    session["clock"] = initial_clock
 
     return redirect("/board")
 
@@ -210,9 +342,13 @@ def play():
     if not move_uci:
         return jsonify({"error": "Missing move"}), 400
 
+    clock = get_clock_state()
+    if clock["is_finished"]:
+        return jsonify({"error": "Game is already finished", "clock": clock}), 400
+
     board = board_from_fen(session["fen"])
     if not make_move(board, move_uci):
-        return jsonify({"error": "Illegal move"}), 400
+        return jsonify({"error": "Illegal move", "clock": clock}), 400
 
     ai_move = make_random_ai_move(board)
     new_fen = get_fen(board)
@@ -223,12 +359,29 @@ def play():
         logger.exception("Lecture de la partie %s impossible.", game_id)
         return jsonify({"error": "Database unavailable"}), 503
 
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
     if game:
         game.fen = new_fen
+        persist_clock_to_game(game, clock)
         if not commit_session("la mise a jour d'une partie via /play"):
             return jsonify({"error": "Database unavailable"}), 503
 
     session["fen"] = new_fen
+    clock = sync_clock_state(session.get("clock"))
+
+    if board.is_game_over():
+        clock["is_finished"] = True
+        clock["result"] = "board_game_over"
+        clock["active_color"] = None
+
+    clock["last_updated_at"] = time.time()
+    session["clock"] = clock
+    persist_clock_to_game(game, clock)
+
+    if not commit_session("la sauvegarde du chrono via /play"):
+        return jsonify({"error": "Database unavailable"}), 503
 
     return jsonify(
         {
@@ -237,7 +390,7 @@ def play():
             "fen": new_fen,
             "ascii": str(board),
             "game_over": board.is_game_over(),
-            "clock": get_clock_state(),
+            "clock": clock,
         }
     )
 
@@ -257,7 +410,19 @@ def board():
     if "fen" not in session:
         return "Pas de partie commencee."
 
+    game_id = session.get("game_id")
+
+    if game_id:
+        try:
+            game = db.session.get(Game, game_id)
+        except SQLAlchemyError:
+            logger.exception("Lecture de la partie %s impossible via /board.", game_id)
+            game = None
+        if game:
+            load_game_into_session(game)
+
     color = session.get("color", "white")
+    session.setdefault("clock", build_initial_clock(active_color=color))
     return render_template(
         "board.html",
         fen=session["fen"],
@@ -286,6 +451,10 @@ def play_form():
     if not move_uci:
         return "Missing move", 400
 
+    clock = get_clock_state()
+    if clock["is_finished"]:
+        return "Game is already finished", 400
+
     board = board_from_fen(session["fen"])
     if not make_move(board, move_uci):
         return "Illegal move", 400
@@ -299,12 +468,28 @@ def play_form():
         logger.exception("Lecture de la partie %s impossible via /play-form.", game_id)
         return "Database unavailable", 503
 
+    if not game:
+        return "Game not found", 404
+
     if game:
         game.fen = new_fen
+        persist_clock_to_game(game, clock)
         if not commit_session("la mise a jour d'une partie via /play-form"):
             return "Database unavailable", 503
 
     session["fen"] = new_fen
+    clock = sync_clock_state(session.get("clock"))
+
+    if board.is_game_over():
+        clock["is_finished"] = True
+        clock["result"] = "board_game_over"
+        clock["active_color"] = None
+
+    clock["last_updated_at"] = time.time()
+    session["clock"] = clock
+    persist_clock_to_game(game, clock)
+    if not commit_session("la sauvegarde du chrono via /play-form"):
+        return "Database unavailable", 503
     return redirect("/board")
 
 
