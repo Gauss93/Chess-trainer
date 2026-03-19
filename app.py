@@ -1,12 +1,12 @@
 """Application Flask du projet Chess Trainer.
 
-Ce module configure l'application, la session utilisateur, les interactions
-avec la base de donnees et un chrono de 10 minutes par joueur.
+Ce module configure l'application, la session utilisateur et les
+interactions avec la base de donnees pour persister l'etat des parties.
 """
 
 import logging
 import os
-from datetime import datetime, timezone
+import time
 
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, session
@@ -23,14 +23,54 @@ from chess_logic import (
 from extensions import db
 from models import Game
 
-TIME_CONTROL_MINUTES = 10
-TIME_CONTROL_SECONDS = TIME_CONTROL_MINUTES * 60
-
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_CLOCK = {
+    "white_time_left": 600,
+    "black_time_left": 600,
+    "active_color": "white",
+    "is_finished": False,
+    "result": None,
+}
+
+
+def build_initial_clock(active_color: str = "white") -> dict:
+    """Construit un chrono initial avec horodatage serveur."""
+
+    return {
+        **DEFAULT_CLOCK,
+        "active_color": active_color,
+        "last_updated_at": time.time(),
+    }
+
+
+def build_clock_from_game(game: Game | None, fallback_color: str = "white") -> dict:
+    """Construit un chrono a partir des donnees persistees en base."""
+
+    if not game:
+        return build_initial_clock(active_color=fallback_color)
+
+    active_color = game.active_color
+    if active_color not in {"white", "black"}:
+        active_color = None
+
+    return {
+        "white_time_left": game.white_time_left
+        if game.white_time_left is not None
+        else DEFAULT_CLOCK["white_time_left"],
+        "black_time_left": game.black_time_left
+        if game.black_time_left is not None
+        else DEFAULT_CLOCK["black_time_left"],
+        "active_color": active_color,
+        "is_finished": bool(game.is_finished),
+        "result": game.result,
+        "last_updated_at": game.clock_last_updated_at or time.time(),
+    }
 
 
 def load_environment() -> bool:
@@ -82,39 +122,6 @@ def build_database_url() -> str:
     return database_url
 
 
-def utc_now() -> datetime:
-    """Retourne un horodatage UTC conscient du fuseau.
-
-    Returns:
-        datetime: Date/heure UTC utilisee pour le chrono serveur.
-    """
-
-    return datetime.now(timezone.utc)
-
-
-def normalize_utc_datetime(value: datetime | None) -> datetime | None:
-    """Normalise une date SQLAlchemy vers un datetime UTC coherent.
-
-    Certaines bases ou drivers retournent un `datetime` sans information de
-    fuseau. Le chrono manipule toujours des dates UTC timezone-aware pour
-    eviter les erreurs de soustraction entre datetimes incompatibles.
-
-    Args:
-        value (datetime | None): Valeur lue depuis la base.
-
-    Returns:
-        datetime | None: Valeur UTC timezone-aware ou `None`.
-    """
-
-    if value is None:
-        return None
-
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-
-    return value.astimezone(timezone.utc)
-
-
 def commit_session(context: str) -> bool:
     """Valide la transaction SQLAlchemy en securisant les erreurs reseau/DB.
 
@@ -137,125 +144,103 @@ def commit_session(context: str) -> bool:
         return False
 
 
-def ensure_game_timer_columns() -> None:
-    """Ajoute les colonnes de chrono si la table `game` existe deja sans elles.
+def sync_clock_state(clock: dict | None = None) -> dict:
+    """Met a jour le chrono selon le temps reel ecoule cote serveur."""
 
-    Cette mise a niveau simple evite d'imposer Alembic pour ce projet de demo.
-    Elle ne remplace pas une vraie strategie de migration sur un projet plus
-    long terme.
-    """
+    current_clock = dict(clock or session.get("clock") or build_initial_clock())
+    now = time.time()
+
+    if current_clock.get("is_finished") or not current_clock.get("active_color"):
+        current_clock["last_updated_at"] = now
+        return current_clock
+
+    last_updated_at = float(current_clock.get("last_updated_at", now))
+    elapsed_seconds = max(0, int(now - last_updated_at))
+
+    if elapsed_seconds > 0:
+        active_color = current_clock["active_color"]
+        time_key = f"{active_color}_time_left"
+        current_clock[time_key] = max(
+            0,
+            int(current_clock.get(time_key, DEFAULT_CLOCK[time_key])) - elapsed_seconds,
+        )
+
+        if current_clock[time_key] == 0:
+            current_clock["is_finished"] = True
+            current_clock["result"] = (
+                "black_time_win" if active_color == "white" else "white_time_win"
+            )
+            current_clock["active_color"] = None
+
+    current_clock["last_updated_at"] = now
+    return current_clock
+
+
+def get_clock_state() -> dict:
+    """Retourne le chrono courant et le resynchronise dans la session."""
+
+    clock = sync_clock_state()
+    session["clock"] = clock
+    return clock
+
+
+def persist_clock_to_game(game: Game, clock: dict) -> None:
+    """Copie l'etat du chrono courant dans le modele SQLAlchemy."""
+
+    game.white_time_left = int(clock["white_time_left"])
+    game.black_time_left = int(clock["black_time_left"])
+    game.active_color = clock.get("active_color")
+    game.clock_last_updated_at = float(clock["last_updated_at"])
+    game.is_finished = bool(clock.get("is_finished"))
+    game.result = clock.get("result")
+
+
+def load_game_into_session(game: Game) -> None:
+    """Recharge la partie et son chrono depuis la base vers la session."""
+
+    session["game_id"] = game.id
+    session["fen"] = game.fen
+    session["color"] = game.player_color or "white"
+    session["clock"] = build_clock_from_game(game, fallback_color=session["color"])
+
+
+def ensure_game_schema() -> None:
+    """Ajoute les colonnes manquantes pour les parties existantes."""
 
     inspector = inspect(db.engine)
-    if "game" not in inspector.get_table_names():
-        return
-
     existing_columns = {column["name"] for column in inspector.get_columns("game")}
-    required_columns = {
-        "white_time_left": (
-            "ALTER TABLE game ADD COLUMN white_time_left INTEGER NOT NULL DEFAULT 600"
-        ),
-        "black_time_left": (
-            "ALTER TABLE game ADD COLUMN black_time_left INTEGER NOT NULL DEFAULT 600"
-        ),
-        "last_move_at": "ALTER TABLE game ADD COLUMN last_move_at TIMESTAMP",
-        "time_control_minutes": (
-            "ALTER TABLE game ADD COLUMN time_control_minutes INTEGER NOT NULL DEFAULT 10"
-        ),
+    missing_columns = {
+        "player_color": "ALTER TABLE game ADD COLUMN player_color VARCHAR(5)",
+        "white_time_left": "ALTER TABLE game ADD COLUMN white_time_left INTEGER",
+        "black_time_left": "ALTER TABLE game ADD COLUMN black_time_left INTEGER",
+        "active_color": "ALTER TABLE game ADD COLUMN active_color VARCHAR(5)",
+        "clock_last_updated_at": "ALTER TABLE game ADD COLUMN clock_last_updated_at FLOAT",
     }
 
-    for column_name, ddl in required_columns.items():
-        if column_name in existing_columns:
-            continue
+    with db.engine.begin() as connection:
+        for column_name, ddl in missing_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(ddl))
 
-        logger.info("Ajout de la colonne manquante `%s` sur la table game.", column_name)
-        db.session.execute(text(ddl))
-
-    db.session.commit()
-
-
-def get_active_color(board) -> str:
-    """Retourne la couleur qui doit jouer pour le FEN courant.
-
-    Args:
-        board (chess.Board): Plateau reconstruit depuis le FEN stocke.
-
-    Returns:
-        str: `white` si les blancs ont le trait, sinon `black`.
-    """
-
-    return "white" if board.turn else "black"
-
-
-def apply_clock(game: Game, board, now: datetime | None = None) -> tuple[bool, str | None]:
-    """Met a jour les temps restants selon le trait courant.
-
-    Le serveur fait foi pour le chrono. Le temps ecoule depuis `last_move_at`
-    est retire au joueur qui devait jouer avant de traiter la prochaine action.
-
-    Args:
-        game (Game): Partie persistante dont les temps doivent etre recalcules.
-        board (chess.Board): Plateau associe permettant d'identifier le trait.
-        now (datetime | None): Horodatage de reference, principalement utile
-            pour les tests. `utc_now()` est utilise si absent.
-
-    Returns:
-        tuple[bool, str | None]: Tuple indiquant si une pendule est tombee et,
-        si oui, la couleur en defaite au temps.
-    """
-
-    now = now or utc_now()
-    if game.is_finished:
-        return False, None
-
-    game.last_move_at = normalize_utc_datetime(game.last_move_at)
-
-    if game.last_move_at is None:
-        game.last_move_at = now
-        return False, None
-
-    elapsed_seconds = int((now - game.last_move_at).total_seconds())
-    if elapsed_seconds <= 0:
-        return False, None
-
-    active_color = get_active_color(board)
-    if active_color == "white":
-        game.white_time_left = max(0, game.white_time_left - elapsed_seconds)
-        if game.white_time_left == 0:
-            game.is_finished = True
-            game.result = "black_time_win"
-            game.last_move_at = now
-            return True, "white"
-    else:
-        game.black_time_left = max(0, game.black_time_left - elapsed_seconds)
-        if game.black_time_left == 0:
-            game.is_finished = True
-            game.result = "white_time_win"
-            game.last_move_at = now
-            return True, "black"
-
-    game.last_move_at = now
-    return False, None
-
-
-def clock_payload(game: Game, board) -> dict:
-    """Construit l'etat du chrono pour le front.
-
-    Args:
-        game (Game): Partie persistante contenant les temps restants.
-        board (chess.Board): Plateau courant pour identifier le trait actif.
-
-    Returns:
-        dict: Donnees compactes utilisees par le template et le JavaScript.
-    """
-
-    return {
-        "white_time_left": game.white_time_left,
-        "black_time_left": game.black_time_left,
-        "active_color": None if game.is_finished else get_active_color(board),
-        "time_control_minutes": game.time_control_minutes,
-        "is_finished": game.is_finished,
-        "result": game.result,
-    }
+        connection.execute(
+            text("UPDATE game SET player_color = COALESCE(player_color, 'white')")
+        )
+        connection.execute(
+            text("UPDATE game SET white_time_left = COALESCE(white_time_left, 600)")
+        )
+        connection.execute(
+            text("UPDATE game SET black_time_left = COALESCE(black_time_left, 600)")
+        )
+        connection.execute(
+            text("UPDATE game SET active_color = COALESCE(active_color, 'white')")
+        )
+        connection.execute(
+            text(
+                "UPDATE game SET clock_last_updated_at = "
+                "COALESCE(clock_last_updated_at, :timestamp)"
+            ),
+            {"timestamp": time.time()},
+        )
 
 
 load_environment()
@@ -270,7 +255,7 @@ db.init_app(app)
 with app.app_context():
     try:
         db.create_all()
-        ensure_game_timer_columns()
+        ensure_game_schema()
     except SQLAlchemyError:
         logger.exception("Impossible d'initialiser la base de donnees avec create_all().")
 
@@ -293,8 +278,7 @@ def welcome():
         return redirect("/new-game")
 
     if last_game:
-        session["game_id"] = last_game.id
-        session["fen"] = last_game.fen
+        load_game_into_session(last_game)
         return redirect("/board")
 
     return redirect("/new-game")
@@ -302,11 +286,11 @@ def welcome():
 
 @app.route("/new-game")
 def new_game():
-    """Initialise une nouvelle partie avec un chrono de 10 minutes.
+    """Initialise une nouvelle partie et la persiste en base.
 
     La session Flask stocke l'identifiant de la partie, la couleur choisie et
-    le FEN courant. La base persiste egalement les deux pendules afin que le
-    temps restant survive a un rafraichissement de page.
+    le FEN courant. La base sert de persistance durable pour restaurer une
+    partie apres redemarrage ou perte de session navigateur.
 
     Returns:
         Response: Redirection vers l'echiquier si la sauvegarde reussit.
@@ -319,34 +303,30 @@ def new_game():
     if color == "black":
         make_random_ai_move(board)
 
-    now = utc_now()
     fen = get_fen(board)
-    game = Game(
-        fen=fen,
-        white_time_left=TIME_CONTROL_SECONDS,
-        black_time_left=TIME_CONTROL_SECONDS,
-        last_move_at=now,
-        time_control_minutes=TIME_CONTROL_MINUTES,
-    )
+    initial_clock = build_initial_clock(active_color=color)
+    game = Game(fen=fen, player_color=color)
+    persist_clock_to_game(game, initial_clock)
     db.session.add(game)
 
-    if not commit_session("la creation d'une nouvelle partie avec chrono"):
+    if not commit_session("la creation d'une nouvelle partie"):
         return "Database unavailable while creating a new game.", 503
 
     session["game_id"] = game.id
     session["fen"] = fen
     session["color"] = color
+    session["clock"] = initial_clock
 
     return redirect("/board")
 
 
 @app.route("/play", methods=["POST"])
 def play():
-    """Traite un coup joueur, le chrono, puis sauvegarde le nouvel etat.
+    """Traite un coup joueur via l'API JSON puis sauvegarde le nouvel etat.
 
-    Avant de jouer le coup, le serveur debite le temps du joueur au trait
-    depuis `last_move_at`. Si son temps est ecoule, la partie est arretee
-    avant toute modification supplementaire.
+    La session Flask fournit le `game_id` et le FEN courant. Une fois le coup
+    valide et la reponse IA jouee, le nouvel etat est enregistre en base pour
+    garder la session web et la persistence SQL synchronisees.
 
     Returns:
         Response: Reponse JSON contenant l'etat de la partie ou une erreur HTTP.
@@ -358,8 +338,20 @@ def play():
 
     data = request.get_json(silent=True) or {}
     move_uci = data.get("move")
+
     if not move_uci:
         return jsonify({"error": "Missing move"}), 400
+
+    clock = get_clock_state()
+    if clock["is_finished"]:
+        return jsonify({"error": "Game is already finished", "clock": clock}), 400
+
+    board = board_from_fen(session["fen"])
+    if not make_move(board, move_uci):
+        return jsonify({"error": "Illegal move", "clock": clock}), 400
+
+    ai_move = make_random_ai_move(board)
+    new_fen = get_fen(board)
 
     try:
         game = db.session.get(Game, game_id)
@@ -370,44 +362,26 @@ def play():
     if not game:
         return jsonify({"error": "Game not found"}), 404
 
-    board = board_from_fen(session["fen"])
-
-    if game.is_finished:
-        return jsonify({"error": "Game already finished", "clock": clock_payload(game, board)}), 400
-
-    flag_fell, loser = apply_clock(game, board)
-    if flag_fell:
-        session["fen"] = game.fen
-        if not commit_session("la cloture d'une partie au temps"):
+    if game:
+        game.fen = new_fen
+        persist_clock_to_game(game, clock)
+        if not commit_session("la mise a jour d'une partie via /play"):
             return jsonify({"error": "Database unavailable"}), 503
-        return (
-            jsonify(
-                {
-                    "error": f"{loser} ran out of time",
-                    "game_over": True,
-                    "clock": clock_payload(game, board),
-                }
-            ),
-            400,
-        )
-
-    if not make_move(board, move_uci):
-        return jsonify({"error": "Illegal move"}), 400
-
-    ai_move = make_random_ai_move(board)
-    new_fen = get_fen(board)
-
-    game.fen = new_fen
-    game.last_move_at = utc_now()
-
-    if board.is_game_over():
-        game.is_finished = True
-        game.result = "board_game_over"
-
-    if not commit_session("la mise a jour d'une partie via /play avec chrono"):
-        return jsonify({"error": "Database unavailable"}), 503
 
     session["fen"] = new_fen
+    clock = sync_clock_state(session.get("clock"))
+
+    if board.is_game_over():
+        clock["is_finished"] = True
+        clock["result"] = "board_game_over"
+        clock["active_color"] = None
+
+    clock["last_updated_at"] = time.time()
+    session["clock"] = clock
+    persist_clock_to_game(game, clock)
+
+    if not commit_session("la sauvegarde du chrono via /play"):
+        return jsonify({"error": "Database unavailable"}), 503
 
     return jsonify(
         {
@@ -415,47 +389,45 @@ def play():
             "ai_move": ai_move,
             "fen": new_fen,
             "ascii": str(board),
-            "game_over": board.is_game_over() or game.is_finished,
-            "clock": clock_payload(game, board),
+            "game_over": board.is_game_over(),
+            "clock": clock,
         }
     )
 
 
 @app.route("/board")
 def board():
-    """Affiche l'echiquier et les pendules a partir de l'etat en session.
+    """Affiche l'echiquier a partir de l'etat stocke en session.
 
-    La vue lit le FEN depuis la session puis recharge la partie SQL pour
-    afficher des temps a jour. Le chrono est recalcule serveur avant rendu.
+    La vue lit le FEN et la couleur depuis la session Flask. Aucun acces en
+    base n'est necessaire ici tant que l'etat de la partie est deja charge.
 
     Returns:
-        Response | str: Template HTML de l'echiquier ou message d'erreur.
+        Response | str: Template HTML de l'echiquier ou message si aucune
+        partie n'est disponible dans la session.
     """
 
-    game_id = session.get("game_id")
-    if not game_id or "fen" not in session:
+    if "fen" not in session:
         return "Pas de partie commencee."
 
-    try:
-        game = db.session.get(Game, game_id)
-    except SQLAlchemyError:
-        logger.exception("Lecture de la partie %s impossible pour /board.", game_id)
-        return "Database unavailable", 503
+    game_id = session.get("game_id")
 
-    if not game:
-        return "Partie introuvable.", 404
-
-    board_state = board_from_fen(session["fen"])
-    apply_clock(game, board_state)
-    if not commit_session("la mise a jour du chrono lors de l'affichage du board"):
-        return "Database unavailable", 503
+    if game_id:
+        try:
+            game = db.session.get(Game, game_id)
+        except SQLAlchemyError:
+            logger.exception("Lecture de la partie %s impossible via /board.", game_id)
+            game = None
+        if game:
+            load_game_into_session(game)
 
     color = session.get("color", "white")
+    session.setdefault("clock", build_initial_clock(active_color=color))
     return render_template(
         "board.html",
         fen=session["fen"],
         color=color,
-        clock=clock_payload(game, board_state),
+        clock=get_clock_state(),
     )
 
 
@@ -463,8 +435,9 @@ def board():
 def play_form():
     """Traite un coup joueur depuis un formulaire HTML standard.
 
-    Comme la route JSON `/play`, cette route debite d'abord le chrono du joueur
-    au trait, applique les coups, puis persiste le nouvel etat en base.
+    Comme la route JSON `/play`, cette route relit le FEN depuis la session,
+    applique les coups, puis persiste le nouvel etat en base pour garder la
+    partie recuperable au prochain chargement.
 
     Returns:
         Response | str: Redirection vers l'echiquier ou message d'erreur.
@@ -478,6 +451,17 @@ def play_form():
     if not move_uci:
         return "Missing move", 400
 
+    clock = get_clock_state()
+    if clock["is_finished"]:
+        return "Game is already finished", 400
+
+    board = board_from_fen(session["fen"])
+    if not make_move(board, move_uci):
+        return "Illegal move", 400
+
+    make_random_ai_move(board)
+    new_fen = get_fen(board)
+
     try:
         game = db.session.get(Game, game_id)
     except SQLAlchemyError:
@@ -487,33 +471,25 @@ def play_form():
     if not game:
         return "Game not found", 404
 
-    board_state = board_from_fen(session["fen"])
-    if game.is_finished:
-        return "Game already finished", 400
-
-    flag_fell, loser = apply_clock(game, board_state)
-    if flag_fell:
-        if not commit_session("la cloture d'une partie au temps via /play-form"):
+    if game:
+        game.fen = new_fen
+        persist_clock_to_game(game, clock)
+        if not commit_session("la mise a jour d'une partie via /play-form"):
             return "Database unavailable", 503
-        return f"{loser} ran out of time", 400
-
-    if not make_move(board_state, move_uci):
-        return "Illegal move", 400
-
-    make_random_ai_move(board_state)
-    new_fen = get_fen(board_state)
-
-    game.fen = new_fen
-    game.last_move_at = utc_now()
-
-    if board_state.is_game_over():
-        game.is_finished = True
-        game.result = "board_game_over"
-
-    if not commit_session("la mise a jour d'une partie via /play-form avec chrono"):
-        return "Database unavailable", 503
 
     session["fen"] = new_fen
+    clock = sync_clock_state(session.get("clock"))
+
+    if board.is_game_over():
+        clock["is_finished"] = True
+        clock["result"] = "board_game_over"
+        clock["active_color"] = None
+
+    clock["last_updated_at"] = time.time()
+    session["clock"] = clock
+    persist_clock_to_game(game, clock)
+    if not commit_session("la sauvegarde du chrono via /play-form"):
+        return "Database unavailable", 503
     return redirect("/board")
 
 
@@ -521,8 +497,8 @@ def play_form():
 def debug_db():
     """Expose les parties en base pour le diagnostic de developpement.
 
-    Cette route lit la table `Game` pour verifier le contenu persiste, y
-    compris les temps restants du chrono.
+    Cette route lit la table `Game` pour verifier le contenu persiste. Elle ne
+    modifie ni la session Flask ni les donnees SQL.
 
     Returns:
         Response: Liste JSON des parties ou erreur HTTP 503 si la base echoue.
@@ -534,21 +510,8 @@ def debug_db():
         logger.exception("Lecture de debug de la base impossible.")
         return jsonify({"error": "Database unavailable"}), 503
 
-    return jsonify(
-        [
-            {
-                "id": game.id,
-                "fen": game.fen,
-                "white_time_left": game.white_time_left,
-                "black_time_left": game.black_time_left,
-                "is_finished": game.is_finished,
-                "result": game.result,
-            }
-            for game in games
-        ]
-    )
+    return jsonify([{"id": game.id, "fen": game.fen} for game in games])
 
 
 if __name__ == "__main__":
-    logger.info("Demarrage du serveur Flask sur http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=os.getenv("FLASK_DEBUG", "0") == "1")
+    app.run()
