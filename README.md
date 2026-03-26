@@ -1,31 +1,43 @@
 # Chess Trainer
 
-Application web d'echecs developpée en Python avec Flask. Le projet permet de jouer une partie contre une IA simple, de sauvegarder l'état de jeu en base de données et d'afficher un échiquier interactif en interface web.
+Application web d’échecs avec IA, API REST et persistance en base de données.
 
-## Pourquoi ce dépôt est intéressant pour un recruteur
+Développée avec Flask, SQLAlchemy et PostgreSQL, elle permet de jouer une partie complète, sauvegarder l’état du jeu et interagir via une interface web ou une API.
 
-Ce repository montre deux dimensions complémentaires :
+## Aperçu
 
-- une branche `main`, qui correspond à la base du projet sur laquelle je travaille directement ;
-- une branche `ai-refactor`, qui me permet d'aller plus loin avec Codex sur l'optimisation, la structuration et la finition du projet.
+### Interface principale
+![Interface](./screenshots/Interface.png)
 
-L'objectif est de rendre visible à la fois :
+### API / Backend
+![API](./screenshots/API.png)
 
-- ma capacité à concevoir et livrer un projet de manière autonome ;
-- ma capacité à iterer, refactorer et professionnaliser un code existant avec une démarche d'amélioration continue.
+### Partie en cours
+![Gameplay](./screenshots/GIF_london.gif)
 
-## Fonctionnalites
+
+## Ce que ce projet démontre
+
+- conception d’une application web full stack ;
+- structuration backend avec séparation logique métier / routes / modèles ;
+- mise en place d’une API REST exploitable indépendamment du frontend ;
+- gestion de la persistance avec SQLAlchemy ;
+- manipulation d’un état applicatif complexe (notation FEN) ;
+- intégration d’une bibliothèque métier externe (`python-chess`).
+
+## Fonctionnalités
 
 - création d'une nouvelle partie ;
+- choix de la couleur du joueur ;
 - jeu contre une IA basique ;
 - validation des coups avec `python-chess` ;
 - affichage interactif du plateau ;
 - gestion de la promotion des pions ;
 - sauvegarde des parties avec SQLAlchemy ;
-- reprise de la partie active ;
-- API REST testable indépendamment du frontend ;
+- reprise de la dernière partie active ;
+- API JSON testable indépendamment du frontend ;
 - gestion d'un contrôle du temps côté serveur ;
-- service PostgreSQL lancable via Docker Compose.
+- prise en charge de SQLite et PostgreSQL.
 
 ## Stack technique
 
@@ -34,8 +46,8 @@ L'objectif est de rendre visible à la fois :
 - Python
 - Flask
 - SQLAlchemy
-- SQLite/PostgreSQL
-- Docker
+- SQLite / PostgreSQL
+- Docker Compose
 - python-chess
 
 ### Frontend
@@ -47,40 +59,28 @@ L'objectif est de rendre visible à la fois :
 
 ## Architecture
 
-Le projet suit une séparation simple des responsabilités :
+Le projet repose sur une séparation simple des responsabilités :
 
-- `app.py` : routes Flask, session utilisateur, persistence et gestion du chrono ;
-- `chess_logic.py` : logique métier liée au plateau et aux coups ;
+- `app.py` : configuration Flask, routes, session utilisateur, persistance et gestion du chrono ;
+- `chess_logic.py` : logique métier liée au plateau, aux coups et à l'IA simple ;
 - `models.py` : modèles SQLAlchemy ;
 - `extensions.py` : initialisation des extensions Flask ;
 - `templates/` : vues HTML ;
-- `static/` : fichiers CSS et JavaScript.
+- `static/` : styles, scripts et ressources du plateau.
 
-L'etat du plateau est stocké via la notation FEN, ce qui permet une gestion de session légère et une reconstruction fiable du jeu.
+## Installation rapide
 
-## Ce que le projet démontre
-
-- conception d'une application web backend/frontend simple mais complète ;
-- séparation entre logique métier, couche HTTP et persistence ;
-- utilisation d'une bibliotheque métier externe (`python-chess`) ;
-- mise en place d'une API JSON exploitable et testable ;
-- prise en compte de la robustesse applicative avec gestion d'erreurs et persistence ;
-- evolution d'un projet personnel vers une version plus maintenable ;
-- capacité à utiliser Codex comme levier d'optimisation, de refactorisation et de clarification technique.
-
-## Installation
-
-### Prerequis
+### Prérequis
 
 - Python 3 ;
 - `pip` ;
-- Docker Desktop uniquement si vous souhaitez lancer PostgreSQL via Docker Compose.
+- Docker Desktop uniquement si vous souhaitez utiliser PostgreSQL via Docker Compose.
 
-### Option 1 - Lancement local simple avec SQLite
+### Option 1 - Lancement local avec SQLite
 
-Le chemin le plus simple pour tester le projet est d'utiliser SQLite, sans Docker.
+Le moyen le plus simple de tester le projet est d'utiliser SQLite, sans Docker.
 
-Un fichier `.env` est présent avec une variable `DATABASE_URL` pointant vers PostgreSQL, il faut la commenter ou supprimer cette variable avant de lancer l'application. Sans `DATABASE_URL`, l'application bascule automatiquement sur SQLite dans `instance/chess.db`.
+Si un fichier `.env` contient une variable `DATABASE_URL` pointant vers PostgreSQL, il faut la supprimer ou la commenter avant le lancement. Sans cette variable, l'application utilise automatiquement SQLite dans `instance/chess.db`.
 
 ```bash
 git clone https://github.com/Gauss93/chess-trainer.git
@@ -100,13 +100,13 @@ Sous Linux / macOS :
 source .venv/bin/activate
 ```
 
-Installation des dépendances :
+Installer les dépendances :
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Vérifier que `DATABASE_URL` n'est pas définie pour PostgreSQL, puis lancer l'application :
+Lancer l'application :
 
 ```bash
 python app.py
@@ -118,7 +118,7 @@ Accès local :
 http://127.0.0.1:5000
 ```
 
-### Option 2 - Lancement avec PostgreSQL via Docker Compose
+### Option 2 - Lancement avec PostgreSQL
 
 Démarrer PostgreSQL :
 
@@ -126,22 +126,16 @@ Démarrer PostgreSQL :
 docker compose up -d
 ```
 
-Puis définir la variable d'environnement suivante dans un fichier `.env` à la racine du projet :
+Puis définir dans `.env` :
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/chess_db
 ```
 
-Lancement de l'application :
+Lancer ensuite l'application :
 
 ```bash
 python app.py
-```
-
-Accès local :
-
-```text
-http://127.0.0.1:5000
 ```
 
 ## Exemple de test API
@@ -171,16 +165,12 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
-## Evolutions réalisees et pistes d'amélioration
+## Limites actuelles et pistes d'amélioration
 
-Evolutions déjà réalisées :
+Le projet est volontairement simple et peut encore évoluer sur plusieurs points :
 
-- mise à disposition d'un service PostgreSQL via Docker Compose.
-
-Pistes d'amélioration :
-
-- IA plus avancee ;
-- historique des coups ;
+- amélioration du niveau de l'IA ;
+- ajout d'un historique des coups ;
 - authentification utilisateur ;
-- système de classement (elo) ;
-- déploiement cloud.
+- système de classement ;
+- déploiement en ligne.
