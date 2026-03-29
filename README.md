@@ -13,7 +13,7 @@ Développée avec Flask, SQLAlchemy et PostgreSQL, elle permet de jouer une part
 ![API](./screenshots/API.png)
 
 ### Partie en cours
-![Gameplay](./screenshots/GIF_london.gif)
+![Gameplay](./screenshots/gameplay.gif)
 
 
 ## Ce que ce projet démontre
