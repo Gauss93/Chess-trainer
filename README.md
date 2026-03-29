@@ -7,7 +7,7 @@ Développée avec Flask, SQLAlchemy et PostgreSQL, elle permet de jouer une part
 ## Aperçu
 
 ### Interface principale
-![Interface](./screenshots/Interface.png)
+![Interface](./screenshots/interface.png)
 
 ### API / Backend
 ![API](./screenshots/API.png)
