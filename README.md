@@ -7,13 +7,13 @@ Développée avec Flask, SQLAlchemy et PostgreSQL, elle permet de jouer une part
 ## Aperçu
 
 ### Interface principale
-![Interface](./screenshots/Interface.png)
+![Interface](./screenshots/interface.png)
 
 ### API / Backend
 ![API](./screenshots/API.png)
 
 ### Partie en cours
-![Gameplay](./screenshots/GIF_london.gif)
+![Gameplay](./screenshots/gameplay.gif)
 
 
 ## Ce que ce projet démontre
