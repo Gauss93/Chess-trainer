@@ -2,7 +2,11 @@
 
 Application web d’échecs avec IA, API REST et persistance en base de données.
 
-Développée avec Flask, SQLAlchemy et PostgreSQL, elle permet de jouer une partie complète, sauvegarder l’état du jeu et interagir via une interface web ou une API.
+Développée avec Flask, SQLAlchemy et SQLite/PostgreSQL, elle permet de jouer une partie complète, sauvegarder l’état du jeu et interagir via une interface web ou une API.
+
+## Démo
+👉 https://chess-trainer-nrks.onrender.com
+⚠️ L’application peut mettre quelques secondes à démarrer (hébergement gratuit).
 
 ## Aperçu
 
@@ -18,24 +22,22 @@ Développée avec Flask, SQLAlchemy et PostgreSQL, elle permet de jouer une part
 
 ## Ce que ce projet démontre
 
-- conception d’une application web full stack ;
-- structuration backend avec séparation logique métier / routes / modèles ;
-- mise en place d’une API REST exploitable indépendamment du frontend ;
-- gestion de la persistance avec SQLAlchemy ;
-- manipulation d’un état applicatif complexe (notation FEN) ;
-- intégration d’une bibliothèque métier externe (`python-chess`).
+- développement d’une application web full stack fonctionnelle ;
+- conception d’une architecture backend claire (Flask, séparation des responsabilités) ;
+- implémentation d’une API REST pour piloter une logique métier complexe ;
+- gestion de la persistance avec SQLAlchemy (SQLite / PostgreSQL) ;
+- manipulation d’un état applicatif (FEN) pour reconstruire une partie ;
+- intégration d’une bibliothèque métier externe fiable (`python-chess`).
 
 ## Fonctionnalités
 
 - création d'une nouvelle partie ;
 - choix de la couleur du joueur ;
 - jeu contre une IA basique ;
-- validation des coups avec `python-chess` ;
+- validation des coups;
 - affichage interactif du plateau ;
 - gestion de la promotion des pions ;
-- sauvegarde des parties avec SQLAlchemy ;
 - reprise de la dernière partie active ;
-- API JSON testable indépendamment du frontend ;
 - gestion d'un contrôle du temps côté serveur ;
 - prise en charge de SQLite et PostgreSQL.
 
